@@ -21,6 +21,7 @@ const args = arg({
   '--config': String,
   '--publish': String,
   '--no-pack': Boolean,
+  '--next13': Boolean,
   '-h': '--help',
   '-v': '--version',
   '-w': '--win',
@@ -53,6 +54,7 @@ if (args['--help']) {
       --arm64        build for arm64
       --universal    build for mac universal binary
       --no-pack      skip electron-builder pack command
+      --next13       use next@13
       --publish, -p  publish artifacts (see https://goo.gl/tSFycD)
                      [choices: "onTag", "onTagOrDraft", "always", "never", undefined]
 
@@ -80,15 +82,35 @@ async function build() {
     fs.removeSync(distdir);
 
     log('Building renderer process');
-    await execa('next', ['build', path.join(cwd, rendererSrcDir)], execaOptions);
-    await execa('next', ['export', '-o', appdir, path.join(cwd, rendererSrcDir)], execaOptions);
+    await execa(
+      'next',
+      ['build', path.join(cwd, rendererSrcDir)],
+      execaOptions
+    );
+
+    if (args['--next13']) {
+      const nextoutdir = path.join(cwd, rendererSrcDir, 'out');
+      fs.copy(nextoutdir, appdir, {
+        overwrite: true,
+      });
+    } else {
+      await execa(
+        'next',
+        ['export', '-o', appdir, path.join(cwd, rendererSrcDir)],
+        execaOptions
+      );
+    }
 
     log('Building main process');
-    await execa('node', [path.join(__dirname, 'webpack.config.js')], execaOptions);
+    await execa(
+      'node',
+      [path.join(__dirname, 'webpack.config.js')],
+      execaOptions
+    );
 
     if (args['--no-pack']) {
       log('Skip Packaging...');
-    } else{
+    } else {
       log('Packaging - please wait a moment');
       await execa('electron-builder', createBuilderArgs(), execaOptions);
     }
